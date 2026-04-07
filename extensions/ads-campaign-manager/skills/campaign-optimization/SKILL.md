@@ -194,3 +194,34 @@ Never create duplicate proposals:
 - Same action + same campaign = skip if pending exists
 - Use proposalId format: `[action]_[campaign-slug]`
 - Example: `tangngansach_winner-campaign-1`
+
+---
+
+## 🚀 NEW: NÂNG CẤP V2 TỐI ƯU HÓA CHIẾN DỊCH
+
+### 1. DAYPARTING (Tối Ưu Giờ Vàng)
+Thay vì chạy ngân sách 24/7 đồng đều, hệ thống tự động dò tìm múi giờ chốt đơn mạnh nhất:
+- **Tín hiệu kích hoạt:** Cần data tối thiểu 14 ngày (`breakdown=hourly_stats`).
+- **Thực thi:** Tạo đề xuất `Tăng bid +20% vào giờ vàng`, `Giảm -30% vào giờ chết`.
+- **API Call:** Generate `ad_schedule` JSON để đẩy lên Meta.
+
+### 2. AUTOMATED RULES ENGINE (Bảo Vệ Ngân Sách Điển Hình)
+Các Rule tự động sẽ chạy nền (background) thông qua `alert-notification` polling:
+- **Rule 1 (Khắt Khe):** `IF CPA > 2x Target AND Spend > [Minimum] THEN Pause` -> Chạy Auto (Không cần confirm).
+- **Rule 2 (Mở Rộng):** `IF ROAS > 3.5 Liên tục 2 ngày THEN Scale +15%` -> Đẩy Proposal bắt buộc qua CEP.
+- **Rule 3 (Cảnh Báo):** `IF Spend Rate > 120% THEN Alert CRITICAL`.
+*Lưu ý: Mọi lệnh tự động Auto-Rule đều phải sinh Audit-Trail ghi vào State.*
+
+### 3. AUCTION OVERLAP DETECTION (Chống Đạp Giá Nhau)
+Lỗi số 1 của Newbie là chạy nhiều Ad Sets đè lên cùng 1 tệp khách hàng:
+- **Trigger:** Check `POST /v19.0/act_{id}/audienceoverlap` mỗi khi có Ad Set mới lên camp.
+- **Hành động:**
+  - Nếu overlap > 20%: Tạo cảnh báo `[OVERLAP_HIGH]`.
+  - Nếu overlap > 50% + ROAS tương đồng: Đề xuất gộp (Merge) 2 Ad Set lại để dồn ngọc (Consolidate Learning).
+  - Cảnh báo Ad Set có nguy cơ không thoát được Learning Phase do bị Ad Set khác hút hết budget.
+
+### 4. BUDGET FORECASTING (Dự Phóng Tài Chính Tương Lai)
+Hệ thống KHÔNG được tự ý "nhân % NS vô hồn". Phải chạy bảng Giả Lập Dự Phóng trước khi xin lệnh `/pheduyet`:
+- **Định Luật Cận Biên Giảm Dần (Diminishing Returns):** Theo logic Toán học, Scale Up +50% budget sẽ tự động làm CPA đắt lên ~15%. Nhúng hệ số suy hao (Decay Factor) này vào `ad-math.ts`.
+- **Projected Outcome:** Trình bày rõ: *"Nếu duyệt cắm thêm [X]đ vào ngày mai, dự kiến chi phí CPA sẽ là [Y], kéo về được [Z] đơn, ROAS trượt còn [W]"*.
+- Khớp với **Profit Margin:** Báo động nếu Projected CPA > Lợi nhuận gộp của sản phẩm. Không Scale nếu sẽ bán lỗ.

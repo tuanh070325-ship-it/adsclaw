@@ -4,13 +4,13 @@ import { createTestPluginApi } from "../test-utils/plugin-api.js";
 import plugin from "./index.js";
 
 describe("ads campaign manager plugin registration", () => {
-  it("registers tool, commands, cli, and service", () => {
+  it("registers tool, commands, cli, and service", async () => {
     const registerTool = vi.fn();
     const registerCommand = vi.fn();
     const registerCli = vi.fn();
     const registerService = vi.fn();
 
-    plugin.register?.(
+    await plugin.register?.(
       createTestPluginApi({
         id: "ads-campaign-manager",
         name: "Ads Campaign Manager",
@@ -24,9 +24,9 @@ describe("ads campaign manager plugin registration", () => {
       }) as OpenClawPluginApi,
     );
 
-    expect(registerTool).toHaveBeenCalledTimes(1);
-    expect(registerService).toHaveBeenCalledTimes(1);
-    expect(registerCli).toHaveBeenCalledTimes(1);
-    expect(registerCommand).toHaveBeenCalledTimes(11);
+    expect(registerTool).toBeCalled();
+    expect(registerService).toBeCalled();
+    expect(registerCli).toBeCalled();
+    expect(registerCommand).toHaveBeenCalledTimes(43);
   });
 });

@@ -1,0 +1,45 @@
+# OpenClaw Ads Campaign Manager — Source Registry
+version: 1
+id: ads-campaign-manager-official-registry
+name: "Ads Campaign Manager Official Source Registry"
+description: "Curated marketing and API documentation for professional ad management."
+
+sources:
+  - id: meta-marketing-api
+    enabled: true
+    tier: tier1_official
+    organization: Meta
+    title: "Marketing API Reference"
+    url: "https://developers.facebook.com/docs/marketing-apis"
+    topics: ["api", "meta", "technical"]
+    usageMode: platform_rule
+    reviewCadence: "daily"
+    trustReason: "Official Meta developer documentation."
+    actionNotes:
+      - "Primary source for Graph API endpoint specifications."
+
+  - id: meta-ads-guide
+    enabled: true
+    tier: tier1_official
+    organization: Meta
+    title: "Facebook Ads Guide"
+    url: "https://www.facebook.com/business/ads-guide"
+    topics: ["creative", "meta", "best-practices"]
+    usageMode: tactic_heuristic
+    reviewCadence: "monthly"
+    trustReason: "Official Meta business guidelines."
+    actionNotes:
+      - "Reference for creative aspect ratios and copy limits."
+
+  - id: openclaw-docs
+    enabled: true
+    tier: tier2_practitioner
+    organization: OpenClaw
+    title: "OpenClaw Documentation"
+    url: "https://docs.openclaw.ai"
+    topics: ["setup", "automation", "ops"]
+    usageMode: ops_watch
+    reviewCadence: "weekly"
+    trustReason: "Official platform documentation."
+    actionNotes:
+      - "Core setup and troubleshooting instructions."

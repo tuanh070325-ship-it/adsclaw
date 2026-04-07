@@ -47,7 +47,7 @@ STEP 2 — PRESENT for review
   Nhập 'đăng' để xác nhận hoặc 'sửa' để điều chỉnh"
 
 STEP 3 — PUBLISH (after confirmation)
-  POST https://graph.facebook.com/v25.0/{page_id}/feed
+  POST https://graph.facebook.com/v19.0/{page_id}/feed
   { message: "[content]", access_token: PAGE_TOKEN }
   
 STEP 4 — VERIFY
@@ -63,19 +63,19 @@ STEP 4 — VERIFY
 
 ### Text post:
 ```
-POST /v25.0/{page_id}/feed
+POST /v19.0/{page_id}/feed
 Body: { message: "content", access_token: PAGE_TOKEN }
 ```
 
 ### Photo post:
 ```
-POST /v25.0/{page_id}/photos
+POST /v19.0/{page_id}/photos
 Body: { url: "image_url", caption: "content", access_token: PAGE_TOKEN }
 ```
 
 ### Scheduled post:
 ```
-POST /v25.0/{page_id}/feed
+POST /v19.0/{page_id}/feed
 Body: {
   message: "content",
   published: false,

@@ -5,23 +5,34 @@ description: Scores ads on 6 dimensions (0-10 each), detects creative fatigue, a
 
 # Creative Analysis Skill
 
-## AD SCORING SYSTEM (6 dimensions × 10 = 60 max → normalized to 100)
+## AD SCORING SYSTEM (9 dimensions × 10 = 90 max)
 
 ```
-DIMENSION          WEIGHT  WHAT TO EVALUATE
+DIMENSION            ĐIỂM   TIÊU CHÍ ĐÁNH GIÁ
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Hook Strength        25%   Scroll-stop power, specificity, curiosity gap
-Offer Clarity        20%   Promise clearly stated, tangible value
-CTA Effectiveness    15%   Specific, low-friction, matches funnel stage
-Emotional Resonance  15%   Pain/desire tapped, authenticity
-Body Copy Flow       15%   Agitate → Solution → Proof → CTA
-Visual-Copy Align    10%   Image/video matches text message
+Hook (Text)          10đ    Scroll-stop power, specificity, curiosity
+Offer Clarity        10đ    Promise clearly stated, tangible value
+CTA Effectiveness    10đ    Specific, low-friction, matches funnel
+Emotional Resonance  10đ    Pain/desire tapped, authenticity
+Body Copy Flow       10đ    Agitate → Solution → Proof → CTA
+Visual-Copy Align    10đ    Image/video matches text message
+Thumb Stop Rate(TSR) 10đ    [VIDEO] 3s views / Impressions (Chuẩn >30%)
+Completion Rate      10đ    [VIDEO] Khán giả xem hết video (Chuẩn >20%)
+Click-to-Play Rate   10đ    [VIDEO] Link clicks / Plays (Chuẩn >5%)
 
 SCORE CALCULATION:
-  Raw = sum(dimension × weight)
-  Normalized = Raw × 100 / 60
-  Grade: A(90+) B(75-89) C(60-74) D(40-59) F(<40)
+  Tổng tối đa: 90 điểm. 
+  Nếu là Ảnh (Chỉ có 60đ Core), tự động nhân hệ số 1.5 lên 90 điểm.
+  Grade: A(80-90) B(65-79) C(50-64) D(35-49) F(<35)
 ```
+
+## 🚀 VIDEO DROP-OFF ANALYSIS (MỚI)
+
+Bắt buộc phân tích khán giả thoát (drop-off) ở giây thứ mấy:
+- **Rớt > 50% trước 3s:** → Lỗi HOOK FAIL. Đề xuất đổi ngay giây 1-3.
+- **Rớt mạnh ở 8-12s:** → Lỗi BODY COPY FAIL. Giải pháp rườm rà.
+- **Rớt ở 20s+:** → Lỗi CTA FAIL. Khán giả xem hết nhưng không click.
+- *Hành động:* Không bao giờ khuyên chung chung "làm lại video", phải chỉ rõ sửa khúc nào!
 
 ---
 

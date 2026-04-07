@@ -20,6 +20,10 @@
       "label": "Source Registry Path",
       "help": "Path to the curated YAML source registry. Leave empty to use the bundled default."
     },
+    "alertChannel": {
+      "label": "Alert Channel",
+      "help": "Primary channel for proactive alerts (telegram | zalo)."
+    },
     "intelligence.search.enabled": {
       "label": "Enable Web Search",
       "help": "Allow the assistant to search the web using Serper/Google."
@@ -44,6 +48,11 @@
         "type": "number",
         "minimum": 1,
         "maximum": 1440
+      },
+      "alertChannel": {
+        "type": "string",
+        "enum": ["telegram", "zalo"],
+        "default": "telegram"
       },
       "snapshotPath": {
         "type": "string"
@@ -183,25 +192,19 @@
       "role": "You are a senior Meta Ads performance specialist with 10+ years experience. You are decisive, data-driven, and always take action by calling tools directly — you never ask the user for tokens or API keys because all credentials are pre-configured in the system environment.",
       "personality": "Direct, professional, action-oriented. You address the user as 'Sếp' (Boss). You never say 'I cannot access' or 'I need a token'. You call the available tools immediately and return results.",
       "guidelines": [
-        "ALWAYS call a tool before responding. Never answer from memory alone.",
-        "When boss sends ANY Facebook URL: call meta_ad_library tool FIRST (no token needed — it is public), then call apify_facebook_ads tool (APIFY_TOKEN is already in env — do NOT ask for it), then save findings with ads_manager_save_competitor.",
-        "apify_facebook_ads tool reads APIFY_TOKEN automatically from environment variables. NEVER ask boss for this token. Just call the tool.",
-        "serper_search tool reads SERPER_API_KEY automatically from environment variables. NEVER ask boss for this key. Just call the tool.",
-        "meta_ad_library tool is PUBLIC — no authentication needed. Just call it with the pageUrl.",
-        "http_request tool can call ANY REST API including Meta Graph API and Buffer API directly.",
-        "For competitor analysis: call meta_ad_library → if result < 3 ads → call apify_facebook_ads → save with ads_manager_save_competitor → analyze → respond.",
-        "For performance reports: call ads_manager_brief(mode:'report') then ads_manager_brief(mode:'alerts') immediately.",
-        "For /baocao: call ads_manager_brief(mode:'report') immediately — do NOT ask what kind of report.",
-        "For /canhbao: call ads_manager_brief(mode:'alerts') immediately.",
-        "For /kehoach: call ads_manager_brief(mode:'plan') immediately.",
-        "For /de_xuat: call ads_manager_brief(mode:'proposals') immediately.",
-        "For /doithu: call ads_manager_brief(mode:'competitors') immediately.",
-        "For /pheduyet <id>: call ads_manager_execute_action(proposalId:'<id>', status:'approved') immediately.",
-        "For /tuchoi <id>: call ads_manager_execute_action(proposalId:'<id>', status:'rejected') immediately.",
-        "Create proposals for any budget change > 10%, campaign pause/resume, or new campaign.",
-        "Respect safeMode: if true, create proposals only — do not execute Meta writes directly.",
-        "NEVER say: 'Tôi không thể truy cập', 'Tôi cần token', 'Bạn muốn báo cáo gì?', 'Để tiến nhanh chọn A hoặc B'.",
-        "Format currency as: 250,000đ. Format date as: 21/03/2026. Address boss as Sếp."
+        "ADDRESS: Always address the user as 'Sếp'. Use professional, senior-level Vietnamese terminology (e.g., 'nghiệp vụ', 'thám báo', 'tối ưu', 'hiệu suất').",
+        "SILENCE: NEVER narrate what tool you are calling. Do NOT say 'Em đang dùng Apify' or 'Đang tìm kiếm...'. Just call the tool and return the final result.",
+        "CONCISENESS: Provide exactly one final result or proposal per request. Avoid long introductions or 'chatty' filler text.",
+        "AUTONOMY: If Tool A fails or returns 0 results, automatically try Tool B without asking for permission. Only report the final merged findings.",
+        "CREDENTIALS: All tokens (META, APIFY, SERPER) are pre-configured. NEVER ask the user for them. Assume the system is ready to hunt.",
+        "WORKFLOW: For competitor analysis, call meta_ad_library → if results < 3, try Serper fallback → save → report. For ROI/Spending, call meta_account_data immediately.",
+        "FORMATTING: Currency: 250,000đ. Date: 21/03/2026. Use tables or dense bullet points for data. NO emojis except 🤖 hoặc 📊 trong tiêu đề.",
+        "LIMIT: Không bao giờ nhắc đến 'OpenClaw' hay các chức năng bot chung chung. Bạn là một 'Ads Manager Specialist' chuyên biệt.",
+        "ECC_INSTINCTS: Bạn có khả năng tự học thói quen của Sếp qua từng phiên chat. Luôn kiểm tra phần [ECC_INSTINCT_ACTIVE] trong context để điều chỉnh hành vi cho khớp với ý Sếp.",
+        "AGENT_SHIELD: Bạn luôn rà soát dữ liệu đầu ra để chặn rò rỉ Token (AgentShield). Nếu phát hiện chuỗi nhạy cảm, hãy tự động ẩn đi và báo cáo an toàn.",
+        "SUB_AGENTS: Sử dụng các kỹ năng chuyên sâu từ Security Reviewer và Budget Optimizer khi cần phân tích sâu.",
+        "EXPERT_MODE: Bạn sở hữu 5 kĩ năng quản lý chuyên nghiệp: Phân tích hiệu suất 360 độ, Tối ưu ngân sách liên chiến dịch (Redistribution), Phân tích chiến lược thầu (Bid Strategy), Phân tích điểm rơi giờ vàng (Hourly) và Thám báo địa lý (Geographic).",
+        "BUDGET_MASTER: Luôn tìm cách dịch chuyển tiền từ camp yếu sang camp mạnh để tối đa hóa ROAS toàn tài khoản."
       ]
     },
     "routing": {
@@ -223,7 +226,7 @@
         },
         {
           "id": "ads_competitor_analysis",
-          "description": "User wants to analyze a competitor page, search for fanpages, or scrape ad data. ALWAYS call meta_ad_library then apify_facebook_ads directly — never ask for tokens.",
+          "description": "User wants to analyze a competitor page, search for fanpages, or scrape ad data. ALWAYS call competitor_intelligence then meta_deep_intel directly — never ask for tokens.",
           "examples": [
             "Phân tích đối thủ: https://www.facebook.com/taxprovietnam",
             "Phân tích quảng cáo của https://www.facebook.com/taxprovietnam",
@@ -266,6 +269,58 @@
             "Anh muốn theo dõi chiến dịch X",
             "/lenh theo dõi CTR ngày",
             "OK thực hiện đi"
+          ]
+        },
+        {
+          "id": "ads_security_audit",
+          "description": "User wants a security audit, check for leaks, or permission review. Route to Security Reviewer sub-agent.",
+          "examples": [
+            "Kiểm tra bảo mật tài khoản",
+            "Có bị leak token không?",
+            "Rà soát quyền admin",
+            "/security",
+            "Check token"
+          ]
+        },
+        {
+          "id": "ads_budget_optimization",
+          "description": "User wants deep budget analysis or scaling strategies. Route to Budget Optimizer sub-agent.",
+          "examples": [
+            "Tối ưu ngân sách chuyên sâu",
+            "Chiến lược scale up là gì?",
+            "Tại sao tiêu tiền nhanh vậy?",
+            "/budget",
+            "Phân tích burn rate"
+          ]
+        },
+        {
+          "id": "ads_budget_redistribute",
+          "description": "User wants to shift budget from poor performers to winning campaigns. Core Expert Skill.",
+          "examples": [
+            "/redistribute",
+            "Tái phân bổ ngân sách",
+            "Dịch chuyển tiền từ các camp yếu sang camp mạnh",
+            "Lấy tiền camp A đắp sang camp B"
+          ]
+        },
+        {
+          "id": "ads_bid_analysis",
+          "description": "User wants to analyze and optimize bid strategies (Lowest Cost vs Cost Cap).",
+          "examples": [
+            "Phân tích chiến lược thầu",
+            "Có nên dùng Cost Cap không?",
+            "Tại sao CPA biến động mạnh?",
+            "/bid_analysis"
+          ]
+        },
+        {
+          "id": "ads_geo_report",
+          "description": "User wants a geographic performance breakdown and flags for poor regions.",
+          "examples": [
+            "Báo cáo địa lý",
+            "Tỉnh nào đang chạy tốt nhất?",
+            "Loại bỏ các vùng không ra đơn",
+            "/geo_analysis"
           ]
         }
       ]

@@ -1,6 +1,6 @@
 ---
 name: meta-ads-analyzer
-description: Pulls LIVE campaign data from YOUR Meta ad account via Marketing API v25. Triggers on "hiệu suất", "ROAS", "CPA", "chi tiêu", "balance", "hôm nay chạy sao", "campaign nào tốt". Returns real-time metrics with health scoring. Requires META_ACCESS_TOKEN + META_AD_ACCOUNT_ID in env.
+description: Pulls LIVE campaign data from YOUR Meta ad account via Marketing API v19. Triggers on "hiệu suất", "ROAS", "CPA", "chi tiêu", "balance", "hôm nay chạy sao", "campaign nào tốt". Returns real-time metrics with health scoring. Requires META_ACCESS_TOKEN + META_AD_ACCOUNT_ID in env.
 ---
 
 # Meta Ads Analyzer — Live Account Intelligence
@@ -28,14 +28,14 @@ description: Pulls LIVE campaign data from YOUR Meta ad account via Marketing AP
 
 ## WHAT THIS SKILL DOES
 
-Pulls real-time data from Meta Marketing API v25 for YOUR OWN ad account.
+Pulls real-time data from Meta Marketing API v19 for YOUR OWN ad account.
 This is NOT for competitors — use competitor-intelligence skill for that.
 
 ```
 META_ACCESS_TOKEN + META_AD_ACCOUNT_ID
     ↓
-GET /v25.0/act_XXXXX?fields=amount_spent,spend_cap,balance,currency
-GET /v25.0/act_XXXXX/campaigns?fields=id,name,status,daily_budget,
+GET /v19.0/act_XXXXX?fields=amount_spent,spend_cap,balance,currency
+GET /v19.0/act_XXXXX/campaigns?fields=id,name,status,daily_budget,
     insights.date_preset(today){spend,impressions,clicks,ctr,cpa,...}
     ↓
 Health Score 0-100 per campaign
@@ -59,11 +59,11 @@ Call `meta_account_data` when boss says:
 
 ---
 
-## API REFERENCE (Meta Marketing API v25)
+## API REFERENCE (Meta Marketing API v19)
 
 ### Account-level endpoint:
 ```
-GET https://graph.facebook.com/v25.0/{act_ACCOUNT_ID}
+GET https://graph.facebook.com/v19.0/{act_ACCOUNT_ID}
 ?fields=id,name,amount_spent,spend_cap,balance,currency
 &access_token={TOKEN}
 
@@ -76,7 +76,7 @@ Response fields:
 
 ### Campaign insights endpoint:
 ```
-GET https://graph.facebook.com/v25.0/{act_ACCOUNT_ID}/campaigns
+GET https://graph.facebook.com/v19.0/{act_ACCOUNT_ID}/campaigns
 ?fields=id,name,status,daily_budget,lifetime_budget,
   insights.date_preset(today){
     spend,impressions,clicks,ctr,cpc,cpm,
@@ -96,6 +96,17 @@ Key insight fields:
   action_values : [{action_type:"purchase", value:"150000"}]
   reach         : unique people reached
   frequency     : avg impressions per person
+
+### Breakdown Insights (Placement & Demographic - MỚI):
+```
+GET https://graph.facebook.com/v19.0/{act_ACCOUNT_ID}/insights
+?level=campaign
+&breakdowns=publisher_platform,age,gender
+&date_preset=last_7d
+&fields=spend,actions,action_values
+&access_token={TOKEN}
+```
+> **Breakdown Effect Alert:** Khi quét demographic/placement, BẮT BUỘC so sánh CPA của nhóm đó (VD: IG vs FB, 18-24 vs 25-34) với CPA trung bình của tệp. Nếu chênh lệch > 30%, phải tạo cảnh báo cắt lọc tệp rác hoặc nhân bản AdSet ngon!
 ```
 
 ### Date presets available:
@@ -149,11 +160,11 @@ Always use professional Markdown, strict bullet points, and the `👉 TÌNH TR�
 ---
 
 ## 👉 BẢNG CHI TIẾT HIỆU SUẤT
-| Chiến dịch | Trạng thái | Chi tiêu | ROAS | CPA | Rating |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| [Campaign A] | 🟢 Active | [X]đ | [Y] | [Z]đ | [Grade] |
-| [Campaign B] | 🔴 Active | [X]đ | [Y] | [Z]đ | [Grade] |
-| [Campaign C] | 🟡 Learning | [X]đ | - | - | 🛠️ |
+| Chiến dịch | Trạng thái | Giai đoạn Học | Chi tiêu | ROAS | CPA | Rating |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| [Campaign A] | 🟢 Active | ✅ Đã pass | [X]đ | [Y] | [Z]đ | [Grade] |
+| [Campaign B] | 🔴 Active | ✅ Đã pass | [X]đ | [Y] | [Z]đ | [Grade] |
+| [Campaign C] | 🟡 Active | ⚠️ Learning | [X]đ | - | - | 🛠️ |
 
 ---
 
@@ -171,13 +182,15 @@ Always use professional Markdown, strict bullet points, and the `👉 TÌNH TR�
 
 ### Weekly trend:
 ```
-👉 TÌNH TRẠNG (7 NGÀY):
-• ROAS chung: [X] → [Y] ([+/-Z]%).
+👉 TÌNH TRẠNG (BÁO CÁO XU HƯỚNG 7 NGÀY QUA CHUYÊN SÂU):
+• ROAS chung: [X] (Tuần này) vs [W] (Tuần trước) → Tốc độ: [+/-Z]%.
 • Chi tiêu: [X]đ → [Y]đ | CPA: [X]đ → [Y]đ.
 
 🔍 INSIGHT:
 • 🏆 Top performer: [Name] (Kéo toàn bộ ROAS tài khoản).
 • ⚠️ Bleeder: [Name] (CPA tăng [X]%, kéo tụt hiệu suất).
+• 👤 Demographic Ngon Nhất: [Age/Gender] CPA rẻ hơn [X]% so với trung bình.
+• 📱 Placement Ngon Nhất: [FB/IG/Audience Network] ROAS đạt [Y].
 
 ⚡ HÀNH ĐỘNG (CEP Required):
 • [SCALE]: [Campaign] (+[X]% NS mục tiêu bám sóng).

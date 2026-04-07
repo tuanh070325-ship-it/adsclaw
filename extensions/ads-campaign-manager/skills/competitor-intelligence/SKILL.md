@@ -3,189 +3,240 @@ name: competitor-intelligence
 description: Full competitor analysis chain for Facebook pages. Triggers on ANY facebook.com URL or "phân tích đối thủ" request. Automatically resolves pageId + displayName, scrapes Ad Library via Apify, falls back to Serper organic data, saves to memory. Never stops mid-chain to ask questions.
 ---
 
-# Competitor Intelligence Skill
+# Competitor Intelligence Skill v2 — Elite Espionage
 
-## CRITICAL KNOWLEDGE
+> [!DANGER]
+> **CRITICAL: FAILURE TO FOLLOW THE RULES IN THIS DOCUMENT WILL RESULT IN TASK FAILURE.**
 
-### Why displayName matters more than pageId
+---
+
+## ⛔ RULE ZERO — TUYỆT ĐỐI CẤM BROWSER
+
 ```
-slug: "gangnambeautycenter1"
-  → Apify searchQueries=["gangnambeautycenter1"] → 0 results
-  → webdatalabs cannot find
+NGHIÊM CẤM trong competitor intelligence:
+❌ "Cho phép dùng browser không?"
+❌ "Em cần mở Chrome để lấy dữ liệu"
+❌ "Chọn A (browser tự động) hay B (cung cấp link)?"
+❌ Yêu cầu user cung cấp link/tên thay vì tự tìm
 
-displayName: "Gangnam Beauty Center"
-  → Apify searchQueries=["Gangnam Beauty Center"] → ✅ finds ads
-
-ALWAYS: resolve pageId + findPageDisplayName() before calling Apify
+Tool đã có đủ:
+✅ market_industry_discovery  → ScrapeCreators API (ngành hàng)
+✅ resolve_facebook_page_id   → Graph API + Serper
+✅ meta_ad_library            → High-Precision Scan (Graph + Apify)
+✅ serper_search              → Google organic
+✅ apify_facebook_ads         → Direct Apify actors (Safe MCP)
+✅ apify_tiktok_ads           → TikTok Creative Center Analysis
 ```
 
-### Meta Graph API VN limitation
-```
-ads_archive API → KHÔNG hỗ trợ VN commercial ads
-Ad Library WEBSITE → hiển thị TẤT CẢ ads
-→ Primary: Apify scrapes website (needs displayName or pageId)
-→ Fallback: Serper organic data
+KHÔNG CÓ LÝ DO GÌ để hỏi hay đề xuất browser.
 ```
 
 ---
 
-## COMPLETE CHAIN (execute all 5 steps without stopping)
+## 1. INPUT ROUTING — Nhận Input, Route Ngay
+
+| Input Type | Action đầu tiên | KHÔNG làm |
+|---|---|---|
+| URL facebook.com/... | `resolve_facebook_page_id(url)` | Hỏi confirm |
+| Tên brand ("Nội thất ABC") | `serper_search("Nội thất ABC facebook page")` | Mở Chrome |
+| "Tìm đối thủ ngành X" | `market_industry_discovery(keyword: X)` | Hỏi A/B/C |
+| "Phân tích TikTok [Brand]" | `apify_tiktok_ads(query: [Brand])` | Hỏi link TikTok |
+
+**AUTONOMY DEFAULTS (không hỏi):**
+- Thị trường: VN
+- Kênh: Facebook + Instagram + TikTok
+- Thời gian: Active ads (hiện tại)
+- Limit: 20 ads/page (MCP Safe Mode)
+
+---
+
+## 2. COMPLETE CHAIN
+
+### Chain A — Specific Page Analysis (có URL hoặc tên cụ thể)
 
 ```
-INPUT: https://www.facebook.com/gangnambeautycenter1
+INPUT: URL hoặc tên brand
 
-STEP 0 — MEMORY CHECK
+STEP 0 — MEMORY CHECK (0.1s)
   ads_manager_brief(mode: "competitors")
-  → Analyzed today? Skip to STEP 4 with cached data.
-  → Not cached? Continue.
+  → Đã phân tích hôm nay? Dùng cache, skip đến STEP 5.
+  → Chưa có? Tiếp tục.
 
 STEP 1 — RESOLVE (pageId + displayName)
   resolve_facebook_page_id(url)
-  Returns:
-  {
-    pageId: "12345678" (or undefined),
-    pageName: "Gangnam Beauty Center" (official),
-    displayName: "Gangnam Beauty Center" (from Serper search),
-    method: "graph_user_token" | "serper_ad_library" | ...
-  }
+  → { pageId, pageName, displayName, method }
   
-  displayName is CRITICAL — used as search query in Apify.
-  Even if pageId fails, displayName from Serper is enough.
+  Nếu chỉ có tên brand (không có URL):
+  serper_search("Tên Brand facebook page site:facebook.com")
+  → Lấy URL từ kết quả → resolve_facebook_page_id
 
-STEP 2 — FETCH ADS (Apify primary)
-  meta_ad_library(pageId: "12345678", country: "VN")
-  
-  INSIDE TOOL (automatic):
-  ├── Graph API search_terms="Gangnam Beauty Center" → 0 (VN limit)
-  └── Apify actors (priority order):
-      1. whoareyouanas: { pageId: "12345678" }  ← if pageId available
-      2. webdatalabs: { searchQueries: ["Gangnam Beauty Center"] } ← displayName
-      3. webdatalabs: { searchQueries: [Ad Library URL] } ← if pageId
-      4. curious_coder: { urls: [Ad Library URL] } ← ONLY if valid URL
-  
-  → Got ads? → STEP 4 (analysis)
-  → 0 ads? → STEP 3
+STEP 1.5 — CROSS-PLATFORM (parallel)
+  apify_tiktok_ads(query: [displayName])
+  serper_search("[displayName] website landing page")
+  → Extract: funnel type, posting frequency, brand tone
 
-STEP 3 — ORGANIC FALLBACK (when Apify 0)
-  DO NOT ASK BOSS. RUN IMMEDIATELY:
-  
-  serper_search({ query: "[displayName] facebook ads quảng cáo 2025 2026" })
-  serper_search({ query: "site:facebook.com/ads/library [slug]" })
-  serper_search({ query: "[displayName] facebook sponsored post" })
-  
-  Use Serper snippets to extract:
-  - Hooks, offers, CTAs visible in meta descriptions
-  - Landing page URLs
-  - Audience signals
+STEP 2 — FETCH ADS (MCP chain, không browser)
+  Thứ tự ưu tiên:
+  1. meta_ad_library(brandName: displayName, competitorUrl: url)
+     → Inside: High-Precision Scan → Apify fallback
+  2. Nếu cần thám báo sâu (Approved):
+     apify_facebook_ads(actorId: "apify/facebook-ads-scraper")
+
+STEP 3 — ORGANIC FALLBACK (NO questions, run immediately)
+  serper_search("[displayName] facebook ads quảng cáo 2025 2026")
+  serper_search("[displayName] sponsored post facebook")
+  serper_search("site:facebook.com/ads/library [displayName]")
+  → Extract hooks/offers từ meta descriptions
 
 STEP 4 — SAVE TO MEMORY
   ads_manager_save_competitor({
-    name: "[displayName]",
-    angle: "[dominant angle from ads OR 'unknown — organic only']",
-    note: "[control ad hook + offer + CTA + source + date]",
-    sourceUrl: "[original URL]"
+    name: displayName,
+    angle: "dominant angle detected",
+    note: "control ad hook + offer + CTA + source",
+    sourceUrl: originalUrl,
+    ads: [...] // nếu có
   })
-  ALWAYS save regardless of data quality.
 
-STEP 5 — RESPOND with structured report
+STEP 5 — RESPOND (structured report)
+```
+
+### Chain B — Industry Discovery (không có URL cụ thể)
+
+```
+INPUT: "tìm đối thủ ngành X" / "5 thương hiệu mạnh [ngành]"
+
+STEP 1 — INDUSTRY SCAN
+  market_industry_discovery({
+    keyword: "[ngành hàng]",
+    country: "VN",
+    platform: "FB",
+    limit: 15
+  })
+  → Bảng Winning Ads sorted by days running
+
+STEP 2 — TOP 5 EXTRACT
+  Lấy 5 pageName unique có days running cao nhất
+  → Đây là 5 đối thủ mạnh nhất (đang profitable)
+
+STEP 3 — DEEP DIVE (pick top 2-3 để phân tích sâu)
+  Với mỗi brand trong top 3:
+  resolve_facebook_page_id("https://facebook.com/[slug]")
+  → meta_ad_library(pageId)
+  
+STEP 4 — SAVE ALL
+  ads_manager_save_competitor(...) cho từng brand
+
+STEP 5 — RESPOND với Industry Report
 ```
 
 ---
 
-## AD ANALYSIS FRAMEWORK
+## 3. ANTI-HALLUCINATION RULES
 
-### For each ad:
-```
-Hook       : First line (scroll-stopper, <10 words)
-Offer      : Promise (result / price / guarantee / deadline)
-CTA        : Messenger / Website / Form / WhatsApp / Call
-Format     : Image / Video / Carousel / Slideshow
-Days live  : From startDate (longer = CONTROL AD)
-Platforms  : Facebook / Instagram / Messenger / Audience Network
-Angle type : Fear / Aspiration / Social Proof / Authority / Urgency / Curiosity
-```
+- **Rule 1 — ZERO INVENTION**: Nếu tool trả về 0 ads → báo `[DỮ LIỆU TRỐNG]`, không bịa số liệu.
+- **Rule 2 — TIMESTAMP**: Mọi ad phải ghi `observed_at` (thời điểm lấy data).
+- **Rule 3 — EXPLICIT MATH**: Ước tính chi tiêu PHẢI dùng công thức từ `ad-math.ts`:
+  ```
+  Estimated spend = daysLive × (video: 500,000đ | image: 200,000đ)
+  Gán nhãn: [ƯỚC TÍNH - KHÔNG CHÍNH XÁC]
+  ```
+- **Rule 4 — ANOMALY FLAG**: Ad chạy >1000 ngày → `[DATA ANOMALY - cần kiểm tra]`
+- **Rule 5 — STRATEGIC INFERENCE**: Nếu 0-2 ads từ tool, KHÔNG dừng. Dùng kiến thức ngành để đề xuất strategy dựa trên benchmark.
 
-### Control Ad = longest running active ad
-- Chạy lâu nhất → đang profitable → phân tích đầu tiên
-- Nếu ad chạy >30 ngày với cùng creative → đây là winner
+---
 
-### Pattern recognition
+## 4. AD ANALYSIS FRAMEWORK
+
 ```
-Most common angle → dominant strategy
-Most common CTA destination → funnel type
-Image:Video ratio → creative preference
-Average days running → testing velocity
+Control Ad = bài đang chạy lâu nhất (profitable)
+
+Với mỗi ad phân tích:
+  Hook       : Dòng đầu <10 từ (scroll-stopper)
+  Offer      : Cam kết (kết quả / giá / bảo hành / deadline)
+  CTA        : Messenger / Website / Form / Call
+  Format     : Image / Video / Carousel
+  Days live  : Số ngày active (dài = winner)
+  Platforms  : FB / IG / Messenger
+  Angle type : Fear / Aspiration / Social Proof / Authority / Urgency / Curiosity
+  Est. Spend : [ƯỚC TÍNH] = daysLive × daily_benchmark
+
+Pattern recognition:
+  Most common angle    → dominant strategy
+  Most common CTA      → funnel type
+  Image:Video ratio    → creative preference
+  Avg days running     → testing velocity
+  Refresh cycle        → creative fatigue schedule
 ```
 
 ---
 
-## RESPONSE TEMPLATES
+## 5. RESPONSE TEMPLATE
 
-### When Apify returns ads:
-```
-🔍 ĐỐI THỦ: [Display Name]
-Page ID: [numeric] | Source: Apify Ad Library | Active: [N] ads
+```markdown
+# 📊 BÁO CÁO ĐỐI THỦ: [Display Name]
+> **Trạng thái:** [N] Ads | **Nguồn:** [ScrapeCreators/Apify/Graph] | **🕒 [HH:mm DD/MM/YYYY]**
 
-🏆 CONTROL AD ([N] ngày chạy):
-  Hook: "[exact first line]"
-  Offer: [what they promise]
-  CTA → [Messenger/Website/Form]
-  Platforms: [list]
-  Started: DD/MM/YYYY
+## 👉 TÌNH TRẠNG QUẢNG CÁO
+[Bảng ads — link trực tiếp Ad Library]
 
-🎯 TOP [3-5] ADS:
-  1. [hook] — [N days] — [CTA type]
-  2. [hook] — [N days] — [CTA type]
-  3. [hook] — [N days] — [CTA type]
+### 🏆 CONTROL AD ([N] ngày)
+- **Hook:** "[...]"
+- **Creative:** [format] — [mô tả ngắn]
+- **[ƯỚC TÍNH CHI TIÊU]:** [X]đ ([days] × [benchmark]/ngày)
 
-📊 PATTERNS:
-  Angle chính: [description with examples]
-  Funnel: [Messenger/Website/Form]
-  Creative: [X% image, Y% video]
-  Run duration avg: [N days]
-  Testing velocity: [X ads/month estimated]
+---
+## 🔎 PHÂN TÍCH CHIÊU THỨC
 
-💡 CƠ HỘI CHO SẾP:
-  • Gap: [what they're NOT doing]
-  • Test angle: [specific angle to steal/counter]
-  • Test offer: [specific offer format to try]
-  • Timing: [when to launch based on their pattern]
-```
+### 1. Chiến lược Vĩ mô
+[Tập trung brand? Lead gen? Retarget funnel?]
 
-### When only Serper data (Apify 0):
-```
-🔍 ĐỐI THỦ: [Display Name]
-Source: Serper organic (Apify chưa index / rate limited)
-Page ID: [numeric nếu có] | Ad Library: [link]
+### 2. Content Pillars
+- Trụ cột 1: [VD: UGC feedback - 40%]
+- Trụ cột 2: [VD: Giá/Ưu đãi - 35%]
+- Trụ cột 3: [VD: Kiến thức - 25%]
 
-📝 Intelligence từ Google/organic:
-  Hooks thấy được: [list from snippets]
-  Offers: [from landing pages found]
-  CTAs: [from snippets]
+### 3. Điểm yếu khai thác
+[Đây là góc mà đối thủ đang bỏ ngỏ]
 
-🔗 Xem ads thủ công:
-  [Ad Library URL]
-
-💡 Từ organic data:
-  • [observed patterns]
-  • [gaps vs your positioning]
+---
+## ⚡ ĐỀ XUẤT CHO SẾP
+1. **[ATTACK]:** [Cách đánh vào điểm yếu]
+2. **[TEST]:** "[Hook/Angle mới dựa trên data]"
+3. **[SCALE]:** [Nếu họ đang dùng X hiệu quả → mình thử Y biến thể]
 ```
 
 ---
 
-## COMPETITOR NOT ON FACEBOOK — FALLBACK
+## 6. WHY displayName > slug
 
 ```
-serper_search({ query: "[competitor name] quảng cáo facebook google ads" })
-serper_search({ query: "[competitor name] sponsored instagram" })
+slug: "nodocogothucong"
+  → Apify searchQueries=["nodocogothucong"] → 0 results
 
-→ Report with: website, landing pages, likely angles, market position
+displayName: "Nội Đồ Cổ Gỗ Thủ Công"
+  → Apify searchQueries=["Nội Đồ Cổ Gỗ Thủ Công"] → ✅ finds ads
+
+ALWAYS: resolve pageId + findPageDisplayName() trước khi gọi Apify
+```
+
+---
+
+## 7. TIKTOK CROSS-PLATFORM
+
+```
+apify_tiktok_ads(query: [displayName])
+→ So sánh: TikTok ưu tiên Sound-on, UGC thật, hook 3 giây đầu
+→ Facebook ưu tiên Text hook mạnh, social proof, CTA rõ
+→ Báo cáo sự khác biệt → Gợi ý test angle cross-platform
 ```
 
 ---
 
 ## FORBIDDEN OUTPUTS
-❌ "Tôi không resolve được page ID"  (then stop)
-❌ "Apify trả về 0" (then ask boss)
-❌ "Bạn có muốn tôi thử cách khác không?"
-✅ Run next step in chain automatically
+❌ "Tôi không resolve được page ID" (và dừng lại)
+❌ "Apify trả về 0" (và hỏi boss)
+❌ "Bạn có muốn dùng browser không?"
+❌ "Chọn phương án A/B..."
+❌ "Cho phép tôi dùng browser automation..."
+✅ Chạy bước tiếp theo trong chain tự động
+✅ Nếu tool fail → dùng fallback ngay, không thông báo đến boss trừ khi tất cả fail

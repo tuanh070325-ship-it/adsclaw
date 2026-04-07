@@ -1,5 +1,5 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
-import { resolveAdsManagerPluginConfig } from "./src/config.js";
+import { resolveAdsManagerPluginConfig } from "./src/core/config.js";
 
 /**
  * OpenClaw Ads Campaign Manager — v9 Production
@@ -38,12 +38,33 @@ export const register = async (api: OpenClawPluginApi): Promise<void> => {
   });
   const isDebug = process.env.NODE_ENV === "development" || true; // Enable for user testing
 
+  // Bridge FPT AI config → process.env so fpt-ai-service.ts can read it
+  if (config.fptAi?.enabled) {
+    const fptKey = config.fptAi.apiKey
+      || (config.fptAi.apiKeyEnvVar ? process.env[config.fptAi.apiKeyEnvVar] : undefined);
+    if (fptKey && !process.env.FPT_AI_API_KEY) {
+      process.env.FPT_AI_API_KEY = fptKey;
+      api.logger.info("[ads-campaign-manager] FPT AI API key loaded from plugin config.");
+    }
+  }
+
   api.logger.info(`[ads-campaign-manager] initializing for business: ${config.business.name}`);
+
+  // 0. Database Initialization (Auto-Migrate)
+  if (config.database?.enabled) {
+    try {
+      const { initPhase3Tables } = await import("./src/core/db-state.js");
+      await initPhase3Tables(config);
+      api.logger.info("[ads-campaign-manager] Database tables initialized/verified.");
+    } catch (e: any) {
+      api.logger.error(`[ads-campaign-manager] DB INIT FAILED: ${e.message}`);
+    }
+  }
 
   try {
     // 1. Sync Logic (Shared)
     const runSync = async () => {
-      const { runAssistantSync } = await import("./src/assistant.js");
+      const { runAssistantSync } = await import("./src/assistant/index.js");
       await runAssistantSync({
         runtime: api.runtime,
         logger: api.logger,
@@ -52,14 +73,14 @@ export const register = async (api: OpenClawPluginApi): Promise<void> => {
     };
 
     // 2. AI Tools
-    const { createAdsManagerTool } = await import("./src/tool.js");
+    const { createAdsManagerTool } = await import("./src/tools/index.js");
     const tools = createAdsManagerTool({ api, pluginConfig: config });
     for (const tool of tools) {
       api.registerTool(tool);
     }
 
     // 3. CLI Integration
-    const { registerAdsManagerCli } = await import("./src/cli.js");
+    const { registerAdsManagerCli } = await import("./src/cli/cli.js");
     api.registerCli(({ program }) => {
       registerAdsManagerCli({
         api,
@@ -69,19 +90,25 @@ export const register = async (api: OpenClawPluginApi): Promise<void> => {
     }, { commands: ["ads-manager"] });
 
     // 4. Commands Integration
-    const { registerAdsManagerCommands } = await import("./src/commands.js");
-    registerAdsManagerCommands({
+    const { registerAdsManagerCommands } = await import("./src/cli/commands/index.js");
+    await registerAdsManagerCommands({
       api,
       pluginConfig: config,
     });
 
+    // 4.5 Chat Handler Integration (FPT AI Natural Language)
+    const { registerChatHandler } = await import("./src/telegram/chat-handler.js");
+    registerChatHandler(api, config);
+
     // 5. Cron & Self-Healing (Renew)
-    const { startRenewCron } = await import("./src/renew-cron.js");
+    const { startRenewCron } = await import("./src/assistant/renew-cron.js");
+    const { initMediaHashCacheTable } = await import("./src/facebook/hash-cache.js");
+    await initMediaHashCacheTable(config);
     startRenewCron(config);
 
     // 6. Webhooks & Testing
     if (config.meta.enabled) {
-      const { createMetaWebhookHandler } = await import("./src/meta-webhook.js");
+      const { createMetaWebhookHandler } = await import("./src/facebook/meta-webhook.js");
       api.registerHttpRoute({
         path: config.meta.webhookPath,
         auth: "plugin",
@@ -104,7 +131,7 @@ export const register = async (api: OpenClawPluginApi): Promise<void> => {
               const body = await req.json();
               const { op, message, postId, pageId, token } = body;
               
-              const pageService = await import("./src/facebook-page.js");
+              const pageService = await import("./src/facebook/index.js");
               const pageCfg = { 
                 pageId: pageId || process.env.FB_PAGE_ID || "", 
                 accessToken: token || process.env.FB_PAGE_ACCESS_TOKEN || "" 
@@ -119,9 +146,9 @@ export const register = async (api: OpenClawPluginApi): Promise<void> => {
                 return res.json({ success: true, result });
               } else if (op === "login") {
                 // Trigger background login
-                const { performPlaywrightLogin } = await import("./src/meta-login.js");
-                const { getUserMetaAuth } = await import("./src/db-state.js");
-                const { encrypt } = await import("./src/crypto-utils.js");
+                const { performPlaywrightLogin } = await import("./src/auth/index.js");
+                const { getUserMetaAuth } = await import("./src/core/db-state.js");
+                const { encrypt } = await import("./src/core/crypto-utils.js");
                 
                 let loginPayload: any;
                 if (body.email && body.password) {
@@ -145,6 +172,13 @@ export const register = async (api: OpenClawPluginApi): Promise<void> => {
                 void performPlaywrightLogin(config, loginPayload).catch((e: any) => api.logger.error(`[TEST LOGIN] Background login failed: ${e.message}`));
 
                 return res.json({ success: true, message: `Login triggered for ${loginPayload.fb_email} in background.` });
+              } else if (op === "upload_image") {
+                const { uploadMetaImage } = await import("./src/facebook/media-service.js");
+                const { path: filePath, adAccountId } = body;
+                if (!filePath) throw new Error("path required for upload_image");
+                const accId = adAccountId || config.meta.adAccountId;
+                const result = await uploadMetaImage(config, pageCfg.accessToken, accId, filePath);
+                return res.json({ success: true, imageHash: result });
               }
               
               throw new Error(`Unknown op: ${op}`);
@@ -167,7 +201,7 @@ export const register = async (api: OpenClawPluginApi): Promise<void> => {
         void (async () => {
           try {
             await runSync();
-            const { syncTelegramBotProfile } = await import("./src/telegram-profile.js");
+            const { syncTelegramBotProfile } = await import("./src/telegram/telegram-profile.js");
             await syncTelegramBotProfile({
               config: api.config,
               runtime: api.runtime,
