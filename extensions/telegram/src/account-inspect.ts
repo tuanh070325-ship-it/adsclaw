@@ -1,14 +1,15 @@
-import type { OpenClawConfig } from "../../../src/config/config.js";
+import { resolveAccountWithDefaultFallback } from "openclaw/plugin-sdk/account-core";
+import type { OpenClawConfig } from "openclaw/plugin-sdk/config-runtime";
+import { coerceSecretRef } from "openclaw/plugin-sdk/config-runtime";
+import type { TelegramAccountConfig } from "openclaw/plugin-sdk/config-runtime";
+import { tryReadSecretFileSync } from "openclaw/plugin-sdk/core";
+import { resolveDefaultSecretProviderAlias } from "openclaw/plugin-sdk/provider-auth";
+import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "openclaw/plugin-sdk/routing";
 import {
-  coerceSecretRef,
   hasConfiguredSecretInput,
   normalizeSecretInputString,
-} from "../../../src/config/types.secrets.js";
-import type { TelegramAccountConfig } from "../../../src/config/types.telegram.js";
-import { tryReadSecretFileSync } from "../../../src/infra/secret-file.js";
-import { resolveAccountWithDefaultFallback } from "../../../src/plugin-sdk/account-resolution.js";
-import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../../../src/routing/session-key.js";
-import { resolveDefaultSecretProviderAlias } from "../../../src/secrets/ref-contract.js";
+} from "openclaw/plugin-sdk/secret-input";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/text-runtime";
 import {
   mergeTelegramAccountConfig,
   resolveDefaultTelegramAccountId,
@@ -131,7 +132,7 @@ function inspectTelegramAccountPrimary(params: {
     return {
       accountId,
       enabled,
-      name: merged.name?.trim() || undefined,
+      name: normalizeOptionalString(merged.name),
       token: accountTokenFile.token,
       tokenSource: accountTokenFile.tokenSource,
       tokenStatus: accountTokenFile.tokenStatus,
@@ -145,7 +146,7 @@ function inspectTelegramAccountPrimary(params: {
     return {
       accountId,
       enabled,
-      name: merged.name?.trim() || undefined,
+      name: normalizeOptionalString(merged.name),
       token: accountToken.token,
       tokenSource: accountToken.tokenSource,
       tokenStatus: accountToken.tokenStatus,
@@ -159,7 +160,7 @@ function inspectTelegramAccountPrimary(params: {
     return {
       accountId,
       enabled,
-      name: merged.name?.trim() || undefined,
+      name: normalizeOptionalString(merged.name),
       token: channelTokenFile.token,
       tokenSource: channelTokenFile.tokenSource,
       tokenStatus: channelTokenFile.tokenStatus,
@@ -176,7 +177,7 @@ function inspectTelegramAccountPrimary(params: {
     return {
       accountId,
       enabled,
-      name: merged.name?.trim() || undefined,
+      name: normalizeOptionalString(merged.name),
       token: channelToken.token,
       tokenSource: channelToken.tokenSource,
       tokenStatus: channelToken.tokenStatus,
@@ -191,7 +192,7 @@ function inspectTelegramAccountPrimary(params: {
     return {
       accountId,
       enabled,
-      name: merged.name?.trim() || undefined,
+      name: normalizeOptionalString(merged.name),
       token: envToken,
       tokenSource: "env",
       tokenStatus: "available",
@@ -203,7 +204,7 @@ function inspectTelegramAccountPrimary(params: {
   return {
     accountId,
     enabled,
-    name: merged.name?.trim() || undefined,
+    name: normalizeOptionalString(merged.name),
     token: "",
     tokenSource: "none",
     tokenStatus: "missing",

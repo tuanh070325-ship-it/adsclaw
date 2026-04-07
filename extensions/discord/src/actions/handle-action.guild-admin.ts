@@ -4,13 +4,14 @@ import {
   readNumberParam,
   readStringArrayParam,
   readStringParam,
-} from "../../../../src/agents/tools/common.js";
+} from "openclaw/plugin-sdk/agent-runtime";
+import type { ChannelMessageActionContext } from "openclaw/plugin-sdk/channel-contract";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/text-runtime";
+import { handleDiscordAction } from "../../action-runtime-api.js";
 import {
   isDiscordModerationAction,
   readDiscordModerationCommand,
-} from "../../../../src/agents/tools/discord-actions-moderation-shared.js";
-import { handleDiscordAction } from "../../../../src/agents/tools/discord-actions.js";
-import type { ChannelMessageActionContext } from "../../../../src/channels/plugins/types.js";
+} from "./runtime.moderation-shared.js";
 
 type Ctx = Pick<
   ChannelMessageActionContext,
@@ -360,7 +361,7 @@ export async function tryHandleDiscordMessageActionGuildAdmin(params: {
         integer: true,
       }),
     });
-    const senderUserId = ctx.requesterSenderId?.trim() || undefined;
+    const senderUserId = normalizeOptionalString(ctx.requesterSenderId);
     return await handleDiscordAction(
       {
         action: moderation.action,

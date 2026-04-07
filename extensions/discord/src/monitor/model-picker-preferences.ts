@@ -1,14 +1,10 @@
 import os from "node:os";
 import path from "node:path";
-import { normalizeProviderId } from "../../../../src/agents/model-selection.js";
-import { resolveStateDir } from "../../../../src/config/paths.js";
-import { withFileLock } from "../../../../src/infra/file-lock.js";
-import { resolveRequiredHomeDir } from "../../../../src/infra/home-dir.js";
-import {
-  readJsonFileWithFallback,
-  writeJsonFileAtomically,
-} from "../../../../src/plugin-sdk/json-store.js";
-import { normalizeAccountId as normalizeSharedAccountId } from "../../../../src/routing/account-id.js";
+import { normalizeAccountId as normalizeSharedAccountId } from "openclaw/plugin-sdk/account-id";
+import { withFileLock } from "openclaw/plugin-sdk/file-lock";
+import { readJsonFileWithFallback, writeJsonFileAtomically } from "openclaw/plugin-sdk/json-store";
+import { normalizeProviderId } from "openclaw/plugin-sdk/provider-model-shared";
+import { resolveStateDir } from "openclaw/plugin-sdk/state-paths";
 
 const MODEL_PICKER_PREFERENCES_LOCK_OPTIONS = {
   retries: {
@@ -33,6 +29,28 @@ type ModelPickerPreferencesStore = {
   entries: Record<string, ModelPickerPreferencesEntry>;
 };
 
+function sanitizePreferenceEntries(entries: unknown): Record<string, ModelPickerPreferencesEntry> {
+  if (!entries || typeof entries !== "object") {
+    return {};
+  }
+  const normalizedEntries: Record<string, ModelPickerPreferencesEntry> = {};
+  for (const [key, value] of Object.entries(entries)) {
+    if (!value || typeof value !== "object") {
+      continue;
+    }
+    const typedValue = value as {
+      recent?: unknown;
+      updatedAt?: unknown;
+    };
+    const recent = Array.isArray(typedValue.recent)
+      ? typedValue.recent.filter((item: unknown): item is string => typeof item === "string")
+      : [];
+    const updatedAt = typeof typedValue.updatedAt === "string" ? typedValue.updatedAt : "";
+    normalizedEntries[key] = { recent, updatedAt };
+  }
+  return normalizedEntries;
+}
+
 export type DiscordModelPickerPreferenceScope = {
   accountId?: string;
   guildId?: string;
@@ -40,7 +58,7 @@ export type DiscordModelPickerPreferenceScope = {
 };
 
 function resolvePreferencesStorePath(env: NodeJS.ProcessEnv = process.env): string {
-  const stateDir = resolveStateDir(env, () => resolveRequiredHomeDir(env, os.homedir));
+  const stateDir = resolveStateDir(env, os.homedir);
   return path.join(stateDir, "discord", "model-picker-preferences.json");
 }
 
@@ -98,16 +116,16 @@ function sanitizeRecentModels(models: string[] | undefined, limit: number): stri
 }
 
 async function readPreferencesStore(filePath: string): Promise<ModelPickerPreferencesStore> {
-  const { value } = await readJsonFileWithFallback<ModelPickerPreferencesStore>(filePath, {
+  const { value } = await readJsonFileWithFallback(filePath, {
     version: 1,
-    entries: {},
+    entries: {} as Record<string, ModelPickerPreferencesEntry>,
   });
   if (!value || typeof value !== "object" || value.version !== 1) {
     return { version: 1, entries: {} };
   }
   return {
     version: 1,
-    entries: value.entries && typeof value.entries === "object" ? value.entries : {},
+    entries: sanitizePreferenceEntries(value.entries),
   };
 }
 

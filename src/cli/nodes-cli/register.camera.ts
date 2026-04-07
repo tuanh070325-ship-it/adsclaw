@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { defaultRuntime } from "../../runtime.js";
+import { normalizeLowercaseStringOrEmpty } from "../../shared/string-coerce.js";
 import { getTerminalTableWidth, renderTable } from "../../terminal/table.js";
 import { shortenHomePath } from "../../utils.js";
 import {
@@ -22,9 +23,7 @@ import {
 import type { NodesRpcOpts } from "./types.js";
 
 const parseFacing = (value: string): CameraFacing => {
-  const v = String(value ?? "")
-    .trim()
-    .toLowerCase();
+  const v = normalizeLowercaseStringOrEmpty(String(value ?? "").trim());
   if (v === "front" || v === "back") {
     return v;
   }
@@ -66,7 +65,7 @@ export function registerNodesCameraCommands(nodes: Command) {
           const devices = Array.isArray(payload.devices) ? payload.devices : [];
 
           if (opts.json) {
-            defaultRuntime.log(JSON.stringify(devices, null, 2));
+            defaultRuntime.writeJson(devices);
             return;
           }
 
@@ -115,9 +114,7 @@ export function registerNodesCameraCommands(nodes: Command) {
         await runNodesCommand("camera snap", async () => {
           const node = await resolveNode(opts, String(opts.node ?? ""));
           const nodeId = node.nodeId;
-          const facingOpt = String(opts.facing ?? "both")
-            .trim()
-            .toLowerCase();
+          const facingOpt = normalizeLowercaseStringOrEmpty(String(opts.facing ?? "both").trim());
           const facings: CameraFacing[] =
             facingOpt === "both"
               ? ["front", "back"]
@@ -184,7 +181,7 @@ export function registerNodesCameraCommands(nodes: Command) {
           }
 
           if (opts.json) {
-            defaultRuntime.log(JSON.stringify({ files: results }, null, 2));
+            defaultRuntime.writeJson({ files: results });
             return;
           }
           defaultRuntime.log(results.map((r) => `MEDIA:${shortenHomePath(r.path)}`).join("\n"));
@@ -241,20 +238,14 @@ export function registerNodesCameraCommands(nodes: Command) {
           });
 
           if (opts.json) {
-            defaultRuntime.log(
-              JSON.stringify(
-                {
-                  file: {
-                    facing,
-                    path: filePath,
-                    durationMs: payload.durationMs,
-                    hasAudio: payload.hasAudio,
-                  },
-                },
-                null,
-                2,
-              ),
-            );
+            defaultRuntime.writeJson({
+              file: {
+                facing,
+                path: filePath,
+                durationMs: payload.durationMs,
+                hasAudio: payload.hasAudio,
+              },
+            });
             return;
           }
           defaultRuntime.log(`MEDIA:${shortenHomePath(filePath)}`);
